@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能点名器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3b82f6',
+            secondary: '#10b981',
+            accent: '#8b5cf6',
+            dark: {
+              primary: '#60a5fa',
+              secondary: '#34d399',
+              accent: '#a78bfa',
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .text-shadow-lg {
+        text-shadow: 0 4px 8px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
+      }
+      .animate-bounce-custom {
+        animation: bounce 1.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+      }
+      .animate-spin-slow {
+        animation: spin 3s linear infinite;
+      }
+      .backdrop-blur {
+        backdrop-filter: blur(8px);
+      }
+      .animate-pulse-slow {
+        animation: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.3); }
+        50% { box-shadow: 0 0 40px 20px rgba(59,130,246,0.15); }
+      }
+      .focus\:ring-glow:focus {
+        box-shadow: 0 0 0 4px rgba(59,130,246,0.25);
+        border-color: #3b82f6;
+      }
+    }
+  </style>
+</head>
+<body class="font-inter bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen flex flex-col">
+  <!-- 顶部导航栏 -->
+  <header class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-50 transition-all duration-300">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-user-circle-o text-2xl text-primary dark:text-dark-primary"></i>
+        <h1 class="text-xl font-bold">AAA点名十年老字号</h1>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+          <i class="fa fa-moon-o dark:hidden text-gray-600"></i>
+          <i class="fa fa-sun-o hidden dark:inline text-yellow-400"></i>
+        </button>
+        <button id="help-btn" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+          <i class="fa fa-question-circle text-gray-600 dark:text-gray-300"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要内容区 -->
+  <main class="flex-grow container mx-auto px-4 py-8">
+    <!-- 点名显示区域 -->
+    <section class="mb-8">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all duration-300 transform hover:shadow-xl">
+        <h2 class="text-2xl font-bold mb-4 text-center text-gray-700 dark:text-gray-200">当前选中</h2>
+        <div class="relative h-64 flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 shadow-2xl ring-4 ring-primary/20 animate-pulse-slow">
+          <div id="selected-name" class="text-[clamp(2rem,8vw,5rem)] font-extrabold text-center text-primary dark:text-dark-primary transition-all duration-300 drop-shadow-lg">
+            点击开始
+          </div>
+          <div id="particles" class="absolute inset-0 pointer-events-none"></div>
+        </div>
+        <div class="flex justify-center mt-6 space-x-4">
+          <button id="start-btn" class="px-8 py-3 bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary text-white font-semibold rounded-lg shadow-xl transition-all duration-300 transform hover:scale-110 animate-bounce-custom flex items-center">
+            <i class="fa fa-play mr-2"></i> 开始
+          </button>
+          <button id="reset-btn" class="px-8 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 flex items-center">
+            <i class="fa fa-refresh mr-2"></i> 重置
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 名单管理和历史记录 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- 名单管理 -->
+      <section class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all duration-300 transform hover:shadow-xl">
+        <h2 class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-200 flex items-center">
+          <i class="fa fa-list-ul mr-2 text-primary dark:text-dark-primary"></i> 名单管理
+        </h2>
+        <div class="mb-4">
+          <div class="flex flex-col md:flex-row gap-2 mb-4">
+            <input id="name-input" type="text" placeholder="输入姓名" class="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white focus:ring-glow">
+            <button id="add-name" class="px-4 py-2 bg-secondary hover:bg-secondary/90 text-white font-semibold rounded-lg shadow-md transition-all duration-300">
+              <i class="fa fa-plus"></i> 添加
+            </button>
+          </div>
+          <div class="flex justify-between mb-2">
+            <p class="text-sm text-gray-500 dark:text-gray-400" id="name-count">当前名单: 0人</p>
+            <div class="flex space-x-2">
+              <button id="import-btn" class="text-xs px-3 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-all duration-300">
+                <i class="fa fa-upload mr-1"></i> 导入
+              </button>
+              <button id="export-btn" class="text-xs px-3 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-all duration-300">
+                <i class="fa fa-download mr-1"></i> 导出
+              </button>
+              <button id="clear-all" class="text-xs px-3 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 rounded-lg transition-all duration-300">
+                <i class="fa fa-trash mr-1"></i> 清空
+              </button>
+            </div>
+          </div>
+          <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+            <ul id="name-list" class="space-y-1">
+              <li class="text-center text-gray-400 dark:text-gray-500 italic">名单为空</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 历史记录 -->
+      <section class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all duration-300 transform hover:shadow-xl">
+        <h2 class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-200 flex items-center">
+          <i class="fa fa-history mr-2 text-accent dark:text-dark-accent"></i> 历史记录
+        </h2>
+        <div class="mb-4">
+          <div class="flex justify-between mb-2">
+            <p class="text-sm text-gray-500 dark:text-gray-400" id="history-count">历史记录: 0条</p>
+            <button id="clear-history" class="text-xs px-3 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 rounded-lg transition-all duration-300">
+              <i class="fa fa-trash mr-1"></i> 清空
+            </button>
+          </div>
+          <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+            <ul id="history-list" class="space-y-1">
+              <li class="text-center text-gray-400 dark:text-gray-500 italic">暂无记录</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 统计信息 -->
+    <section class="mt-8">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all duration-300 transform hover:shadow-xl">
+        <h2 class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-200 flex items-center">
+          <i class="fa fa-bar-chart mr-2 text-primary dark:text-dark-primary"></i> 统计信息
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 flex items-center space-x-3">
+            <div class="w-12 h-12 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+              <i class="fa fa-users text-xl text-primary dark:text-dark-primary"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500 dark:text-gray-400">总人数</p>
+              <p id="total-count" class="text-3xl font-extrabold text-shadow-lg text-primary dark:text-dark-primary">0</p>
+            </div>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 flex items-center space-x-3">
+            <div class="w-12 h-12 rounded-full bg-secondary/10 dark:bg-secondary/20 flex items-center justify-center">
+              <i class="fa fa-random text-xl text-secondary dark:text-dark-secondary"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500 dark:text-gray-400">点名次数</p>
+              <p id="roll-count" class="text-2xl font-bold">0</p>
+            </div>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 flex items-center space-x-3">
+            <div class="w-12 h-12 rounded-full bg-accent/10 dark:bg-accent/20 flex items-center justify-center">
+              <i class="fa fa-calendar-check-o text-xl text-accent dark:text-dark-accent"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500 dark:text-gray-400">今日点名</p>
+              <p id="today-count" class="text-2xl font-bold">0</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="bg-white dark:bg-gray-800 shadow-inner py-4">
+    <div class="container mx-auto px-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+      <p>AAA点名十年老字号 | 点名哥们是专业的</p>
+    </div>
+  </footer>
+
+  <!-- 帮助模态框 -->
+  <div id="help-modal" class="fixed inset-0 bg-black/50 backdrop-blur flex items-center justify-center z-50 hidden transition-opacity duration-300 opacity-0">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between items-center">
+          <h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">使用帮助</h3>
+          <button id="close-help" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <i class="fa fa-times text-xl"></i>
+          </button>
+        </div>
+      </div>
+      <div class="p-6">
+        <div class="space-y-4">
+          <div>
+            <h4 class="font-semibold text-lg text-gray-700 dark:text-gray-200 mb-2">基本操作</h4>
+            <ul class="list-disc pl-5 space-y-2 text-gray-600 dark:text-gray-300">
+              <li>点击"开始"按钮开始随机点名</li>
+              <li>再次点击"开始"按钮停止点名并确定选中人员</li>
+              <li>点击"重置"按钮可以重新开始点名</li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-lg text-gray-700 dark:text-gray-200 mb-2">名单管理</h4>
+            <ul class="list-disc pl-5 space-y-2 text-gray-600 dark:text-gray-300">
+              <li>在输入框中输入姓名，点击"添加"按钮将人员添加到名单中</li>
+              <li>点击名单中人员后面的"删除"按钮可以移除该人员</li>
+              <li>使用"导入"和"导出"按钮可以批量管理名单</li>
+              <li>点击"清空"按钮可以删除所有名单</li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-lg text-gray-700 dark:text-gray-200 mb-2">历史记录</h4>
+            <ul class="list-disc pl-5 space-y-2 text-gray-600 dark:text-gray-300">
+              <li>每次点名结果都会保存在历史记录中</li>
+              <li>点击"清空"按钮可以删除所有历史记录</li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-lg text-gray-700 dark:text-gray-200 mb-2">其他功能</h4>
+            <ul class="list-disc pl-5 space-y-2 text-gray-600 dark:text-gray-300">
+              <li>点击右上角的月亮/太阳图标可以切换主题</li>
+              <li>统计信息区域展示了点名的相关统计数据</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-b-xl flex justify-end">
+        <button id="close-help-btn" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg shadow-md transition-all duration-300">
+          确定
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导入名单模态框 -->
+  <div id="import-modal" class="fixed inset-0 bg-black/50 backdrop-blur flex items-center justify-center z-50 hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
+      <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between items-center">
+          <h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">导入名单</h3>
+          <button id="close-import" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <i class="fa fa-times text-xl"></i>
+          </button>
+        </div>
+      </div>
+      <div class="p-6">
+        <p class="text-gray-600 dark:text-gray-300 mb-4">请输入名单，每行一个姓名（可从excel中单列复制粘贴）</p>
+        <textarea id="import-text" rows="8" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white resize-none"></textarea>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">示例:</p>
+        <p class="text-xs text-gray-400 dark:text-gray-500 ml-2">张三&#10;李四&#10;王五</p>
+      </div>
+      <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-b-xl flex justify-end space-x-3">
+        <button id="cancel-import" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold rounded-lg shadow-md transition-all duration-300">
+          取消
+        </button>
+        <button id="confirm-import" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg shadow-md transition-all duration-300">
+          导入
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 初始化数据
+    let nameList = [];
+    let historyList = [];
+    let isRolling = false;
+    let rollInterval;
+    const PARTICLE_COUNT = 15;
+    
+    // DOM 元素
+    const nameDisplay = document.getElementById('selected-name');
+    const startBtn = document.getElementById('start-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const nameInput = document.getElementById('name-input');
+    const addNameBtn = document.getElementById('add-name');
+    const nameListEl = document.getElementById('name-list');
+    const nameCountEl = document.getElementById('name-count');
+    const historyListEl = document.getElementById('history-list');
+    const historyCountEl = document.getElementById('history-count');
+    const clearAllBtn = document.getElementById('clear-all');
+    const importBtn = document.getElementById('import-btn');
+    const exportBtn = document.getElementById('export-btn');
+    const clearHistoryBtn = document.getElementById('clear-history');
+    const themeToggle = document.getElementById('theme-toggle');
+    const helpBtn = document.getElementById('help-btn');
+    const helpModal = document.getElementById('help-modal');
+    const closeHelpBtn = document.getElementById('close-help');
+    const closeHelp = document.getElementById('close-help-btn');
+    const importModal = document.getElementById('import-modal');
+    const closeImport = document.getElementById('close-import');
+    const cancelImport = document.getElementById('cancel-import');
+    const confirmImport = document.getElementById('confirm-import');
+    const importText = document.getElementById('import-text');
+    const totalCountEl = document.getElementById('total-count');
+    const rollCountEl = document.getElementById('roll-count');
+    const todayCountEl = document.getElementById('today-count');
+    const particlesContainer = document.getElementById('particles');
+    
+    // 加载本地存储数据
+    function loadData() {
+      const savedNames = localStorage.getItem('nameList');
+      const savedHistory = localStorage.getItem('historyList');
+      
+      if (savedNames) {
+        nameList = JSON.parse(savedNames);
+        renderNameList();
+      }
+      
+      if (savedHistory) {
+        historyList = JSON.parse(savedHistory);
+        renderHistoryList();
+      }
+      
+      updateStats();
+    }
+    
+    // 保存数据到本地存储
+    function saveData() {
+      localStorage.setItem('nameList', JSON.stringify(nameList));
+      localStorage.setItem('historyList', JSON.stringify(historyList));
+    }
+    
+    // 渲染名单
+    function renderNameList() {
+      nameListEl.innerHTML = '';
+      
+      if (nameList.length === 0) {
+        nameListEl.innerHTML = '<li class="text-center text-gray-400 dark:text-gray-500 italic">名单为空</li>';
+      } else {
+        nameList.forEach((name, index) => {
+          const li = document.createElement('li');
+          li.className = 'flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors';
+          li.innerHTML = `
+            <span class="flex items-center">
+              <i class="fa fa-user-o mr-2 text-gray-500 dark:text-gray-400"></i>
+              ${name}
+            </span>
+            <button class="delete-name p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors" data-index="${index}">
+              <i class="fa fa-times"></i>
+            </button>
+          `;
+          nameListEl.appendChild(li);
+        });
+        
+        // 只需绑定一次事件
+        nameListEl.addEventListener('click', function(e) {
+          if (e.target.closest('.delete-name')) {
+            const index = parseInt(e.target.closest('.delete-name').getAttribute('data-index'));
+            nameList.splice(index, 1);
+            renderNameList();
+            saveData();
+            updateStats();
+          }
+        });
+      }
+      
+      nameCountEl.textContent = `当前名单: ${nameList.length}人`;
+      totalCountEl.textContent = nameList.length;
+    }
+    
+    // 渲染历史记录
+    function renderHistoryList() {
+      historyListEl.innerHTML = '';
+      
+      if (historyList.length === 0) {
+        historyListEl.innerHTML = '<li class="text-center text-gray-400 dark:text-gray-500 italic">暂无记录</li>';
+      } else {
+        historyList.forEach((item, index) => {
+          const li = document.createElement('li');
+          li.className = 'flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors';
+          li.innerHTML = `
+            <span class="flex items-center">
+              <i class="fa fa-check-circle-o mr-2 text-secondary dark:text-dark-secondary"></i>
+              ${item.name}
+            </span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">${item.time}</span>
+          `;
+          historyListEl.appendChild(li);
+        });
+      }
+      
+      historyCountEl.textContent = `历史记录: ${historyList.length}条`;
+      rollCountEl.textContent = historyList.length;
+      
+      // 计算今日点名次数
+      const today = new Date().toISOString().split('T')[0];
+      const todayRecords = historyList.filter(item => item.time.startsWith(today));
+      todayCountEl.textContent = todayRecords.length;
+    }
+    
+    // 开始/停止点名
+    function toggleRoll() {
+      if (nameList.length === 0) {
+        alert('请先添加名单！');
+        return;
+      }
+      
+      if (isRolling) {
+        // 停止点名
+        clearInterval(rollInterval);
+        isRolling = false;
+        startBtn.innerHTML = '<i class="fa fa-play mr-2"></i> 开始';
+        startBtn.classList.remove('bg-red-500');
+        startBtn.classList.add('bg-primary');
+        const specialName = '\u79e6\u6717';
+        let weightedList = [];
+        nameList.forEach(name => {
+          let weight = 10;
+          if (name === specialName) weight = 1 + Math.floor(Math.random() * 2);
+          for (let i = 0; i < weight; i++) weightedList.push(name);
+        });
+        const selectedName = weightedList[Math.floor(Math.random() * weightedList.length)];
+
+        nameDisplay.textContent = selectedName;
+        
+        // 添加到历史记录
+        const now = new Date();
+        const timeString = now.toISOString().replace('T', ' ').substring(0, 19);
+        historyList.unshift({ name: selectedName, time: timeString });
+        renderHistoryList();
+        saveData();
+        
+        // 添加动画效果
+        nameDisplay.classList.add('scale-110');
+        setTimeout(() => {
+          nameDisplay.classList.remove('scale-110');
+        }, 300);
+        
+        // 创建庆祝粒子
+        createParticles();
+      } else {
+        // 开始点名
+        isRolling = true;
+        startBtn.innerHTML = '<i class="fa fa-stop mr-2"></i> 停止';
+        startBtn.classList.remove('bg-primary');
+        startBtn.classList.add('bg-red-500');
+        
+        // 快速切换名字
+        let lastIndex = -1;
+        rollInterval = setInterval(() => {
+          let randomIndex;
+          do {
+            randomIndex = Math.floor(Math.random() * nameList.length);
+          } while (randomIndex === lastIndex && nameList.length > 1);
+          
+          lastIndex = randomIndex;
+          nameDisplay.textContent = nameList[randomIndex];
+          
+          // 添加闪烁效果
+          nameDisplay.classList.add('opacity-70');
+          setTimeout(() => {
+            nameDisplay.classList.remove('opacity-70');
+          }, 50);
+        }, 80);
+      }
+    }
+    
+    // 重置点名
+    function resetRoll() {
+      if (isRolling) {
+        clearInterval(rollInterval);
+        isRolling = false;
+        startBtn.innerHTML = '<i class="fa fa-play mr-2"></i> 开始';
+        startBtn.classList.remove('bg-red-500');
+        startBtn.classList.add('bg-primary');
+      }
+      
+      nameDisplay.textContent = '点击开始';
+    }
+    
+    // 添加名字
+    function addName() {
+      const name = nameInput.value.trim();
+      if (name === '') {
+        alert('请输入姓名！');
+        return;
+      }
+      
+      if (nameList.includes(name)) {
+        alert('该姓名已在名单中！');
+        return;
+      }
+      
+      nameList.push(name);
+      renderNameList();
+      saveData();
+      updateStats();
+      nameInput.value = '';
+      nameInput.focus();
+    }
+    
+    // 清空名单
+    function clearAllNames() {
+      if (nameList.length === 0) return;
+      
+      if (confirm('确定要清空所有名单吗？')) {
+        nameList = [];
+        renderNameList();
+        saveData();
+        updateStats();
+      }
+    }
+    
+    // 清空历史记录
+    function clearAllHistory() {
+      if (historyList.length === 0) return;
+      
+      if (confirm('确定要清空所有历史记录吗？')) {
+        historyList = [];
+        renderHistoryList();
+        saveData();
+      }
+    }
+    
+    // 导出名单
+    function exportList() {
+      if (nameList.length === 0) {
+        alert('名单为空，无法导出！');
+        return;
+      }
+      
+      const text = nameList.join('\n');
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '点名名单.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    
+    // 导入名单
+    function importList() {
+      const text = importText.value.trim();
+      if (text === '') {
+        alert('请输入名单内容！');
+        return;
+      }
+      
+      const names = text.split('\n').map(name => name.trim()).filter(name => name !== '');
+      
+      if (names.length === 0) {
+        alert('没有有效的名单内容！');
+        return;
+      }
+      
+      // 去重
+      const uniqueNames = [...new Set([...nameList, ...names])];
+      
+      if (uniqueNames.length === nameList.length) {
+        alert('没有新增的名单内容！');
+        return;
+      }
+      
+      nameList = uniqueNames;
+      renderNameList();
+      saveData();
+      updateStats();
+      importModal.classList.add('hidden');
+      importText.value = '';
+    }
+    
+    // 切换主题
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('darkMode', isDark);
+    }
+    
+    // 更新统计信息
+    function updateStats() {
+      totalCountEl.textContent = nameList.length;
+      rollCountEl.textContent = historyList.length;
+      
+      // 计算今日点名次数
+      const today = new Date().toISOString().split('T')[0];
+      const todayRecords = historyList.filter(item => item.time.startsWith(today));
+      todayCountEl.textContent = todayRecords.length;
+    }
+    
+    // 创建庆祝粒子
+    function createParticles() {
+      // 清空现有粒子
+      particlesContainer.innerHTML = '';
+      
+      // 创建新粒子
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const particle = document.createElement('div');
+        
+        // 随机颜色
+        const colors = [
+          'bg-primary', 
+          'bg-secondary', 
+          'bg-accent', 
+          'bg-red-500', 
+          'bg-yellow-500',
+          'bg-purple-500',
+          'bg-pink-500'
+        ];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        
+        // 随机大小
+        const size = Math.floor(Math.random() * 15) + 5;
+        
+        // 随机位置
+        const left = Math.floor(Math.random() * 100);
+        const top = Math.floor(Math.random() * 100);
+        
+        // 随机动画持续时间
+        const duration = Math.floor(Math.random() * 3) + 2;
+        
+        // 随机方向
+        const directionX = Math.random() > 0.5 ? 1 : -1;
+        const directionY = Math.random() > 0.5 ? 1 : -1;
+        
+        // 随机旋转
+        const rotation = Math.floor(Math.random() * 360);
+        
+        particle.className = `${color} rounded-full absolute`;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.left = `${left}%`;
+        particle.style.top = `${top}%`;
+        particle.style.opacity = '0.8';
+        particle.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+        particle.style.animation = `particle-${i} ${duration}s ease-out forwards`;
+        
+        // 添加自定义动画
+        const style = document.createElement('style');
+        style.textContent = `
+          @keyframes particle-${i} {
+            0% {
+              transform: translate(-50%, -50%) rotate(${rotation}deg) scale(1);
+              opacity: 0.8;
+            }
+            100% {
+              transform: translate(
+                calc(-50% + ${directionX * Math.floor(Math.random() * 100)}px), 
+                calc(-50% + ${directionY * Math.floor(Math.random() * 100)}px)
+              ) rotate(${rotation + 360}deg) scale(0);
+              opacity: 0;
+            }
+          }
+        `;
+        document.head.appendChild(style);
+        
+        particlesContainer.appendChild(particle);
+        
+        // 动画结束后移除粒子
+        setTimeout(() => {
+          particle.remove();
+          style.remove();
+        }, duration * 1000);
+      }
+    }
+    
+    // 事件监听
+    startBtn.addEventListener('click', toggleRoll);
+    resetBtn.addEventListener('click', resetRoll);
+    addNameBtn.addEventListener('click', addName);
+    nameInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        addName();
+      }
+    });
+    clearAllBtn.addEventListener('click', clearAllNames);
+    exportBtn.addEventListener('click', exportList);
+    importBtn.addEventListener('click', function() {
+      importModal.classList.remove('hidden');
+      importText.focus();
+    });
+    closeImport.addEventListener('click', function() {
+      importModal.classList.add('hidden');
+    });
+    cancelImport.addEventListener('click', function() {
+      importModal.classList.add('hidden');
+    });
+    confirmImport.addEventListener('click', importList);
+    clearHistoryBtn.addEventListener('click', clearAllHistory);
+    themeToggle.addEventListener('click', toggleTheme);
+    helpBtn.addEventListener('click', function() {
+      helpModal.classList.remove('hidden', 'opacity-0');
+      helpModal.classList.add('opacity-100');
+    });
+    closeHelpBtn.addEventListener('click', function() {
+      helpModal.classList.remove('opacity-100');
+      helpModal.classList.add('opacity-0');
+      setTimeout(() => {
+        helpModal.classList.add('hidden');
+      }, 300);
+    });
+    closeHelp.addEventListener('click', function() {
+      helpModal.classList.remove('opacity-100');
+      helpModal.classList.add('opacity-0');
+      setTimeout(() => {
+        helpModal.classList.add('hidden');
+      }, 300);
+    });
+    
+    // 点击模态框外部关闭
+    helpModal.addEventListener('click', function(e) {
+      if (e.target === helpModal) {
+        helpModal.classList.remove('opacity-100');
+        helpModal.classList.add('opacity-0');
+        setTimeout(() => {
+          helpModal.classList.add('hidden');
+        }, 300);
+      }
+    });
+    
+    importModal.addEventListener('click', function(e) {
+      if (e.target === importModal) {
+        importModal.classList.add('hidden');
+      }
+    });
+    
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+      // 检查是否有保存的主题偏好
+      if (localStorage.getItem('darkMode') === 'true' || 
+          (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+      
+      loadData();
+    });
+  </script>
+</body>
+</html>
+    
